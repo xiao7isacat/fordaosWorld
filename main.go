@@ -93,6 +93,7 @@ func weightedRandomSelection(holders map[common.Address]map[string]*big.Int, num
 	var totalWeight *big.Int = big.NewInt(0)
 	weights := make(map[common.Address]*big.Int)
 
+	// 计算总权重
 	for address, balances := range holders {
 		weight := new(big.Int).Add(balances["AR"], balances["AISTR"])
 		weight.Add(weight, balances["ALCH"])
@@ -101,19 +102,24 @@ func weightedRandomSelection(holders map[common.Address]map[string]*big.Int, num
 	}
 
 	rand.Seed(time.Now().UnixNano())
-	num := 1
-	for len(winners) < numWinners && num <= len(holders) {
+	selected := make(map[common.Address]bool)
+
+	for len(winners) < numWinners && len(selected) < len(holders) {
 		r := new(big.Int).Rand(rand.New(rand.NewSource(time.Now().UnixNano())), totalWeight)
 		var cumulativeWeight *big.Int = big.NewInt(0)
 
 		for address, weight := range weights {
+			if selected[address] {
+				continue
+			}
 			cumulativeWeight.Add(cumulativeWeight, weight)
 			if r.Cmp(cumulativeWeight) < 0 {
 				winners = append(winners, address)
+				selected[address] = true
+				totalWeight.Sub(totalWeight, weight)
 				break
 			}
 		}
-		num++
 	}
 
 	return winners
@@ -139,7 +145,7 @@ func main() {
 	}
 
 	holders := getHoldersBalances(client, blockNumber, holderAddresses)
-	winners := weightedRandomSelection(holders, 100)
+	winners := weightedRandomSelection(holders, 1)
 
 	for _, winner := range winners {
 		fmt.Printf("Address: %s, Balances: AR=%s, AISTR=%s, ALCH=%s\n",
